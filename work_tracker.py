@@ -47,6 +47,15 @@ class WorkTracker:
         conn.close()
         return [WorkEntry(row[0], row[2], row[3], row[4], row[5]) for row in rows]
 
+    def get_last_entry(self):
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM work_entries ORDER BY id DESC LIMIT 1')
+        row = cursor.fetchone()
+        conn.close()
+        return [WorkEntry(row[0], row[2], row[3], row[4], row[5]) if row else None]
+
+
     def get_total_time_spent(self):
         conn = create_connection()
         cursor = conn.cursor()
