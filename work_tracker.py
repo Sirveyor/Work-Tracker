@@ -56,6 +56,26 @@ class WorkTracker:
         return [WorkEntry(row[0], row[2], row[3], row[4], row[5]) if row else None]
 
 
+    def print_current_entry_time_spent(self):
+        try:
+            conn = create_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT SUM(julianday(end_time) - julianday(start_time)) * 24
+                FROM work_entries ORDER BY id DESC LIMIT 1
+            ''')
+            row = cursor.fetchone()
+            if row:
+                print(f"Current entry time spent: {row[0]:.2f} hours")
+            else:
+                print("No current entry")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+        finally:
+            if conn:
+                conn.close()
+     
+
     def get_total_time_spent(self):
         conn = create_connection()
         cursor = conn.cursor()

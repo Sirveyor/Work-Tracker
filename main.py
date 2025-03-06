@@ -103,8 +103,10 @@ def main():
             description = input("Enter a description of the work done: ")
             tracker.add_entry(project_number, person, start_time, end_time, description)
             print(tracker.get_last_entry())
+            print(tracker.print_current_entry_time_spent())
             print("Entry added!")
             save_last_person(person)
+            print('\n')
 
         elif choice == '2':
             print("\nCurrent Entries:")
