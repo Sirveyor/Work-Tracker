@@ -61,7 +61,7 @@ class WorkTracker:
             conn = create_connection()
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT SUM(julianday(end_time) - julianday(start_time)) * 24
+                SELECT SUM(julianday(end_time) - julianday(start_time)) * 24 AS total_hours
                 FROM work_entries ORDER BY id DESC LIMIT 1
             ''')
             row = cursor.fetchone()
