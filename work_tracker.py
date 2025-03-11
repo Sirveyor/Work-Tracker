@@ -1,8 +1,29 @@
 import sqlite3
-from database import create_connection
+from database import create_connection, create_table
 
 class WorkEntry:
+    """
+    Represents a work entry for a specific project.
+
+    Attributes:
+        project_number (str): The identifier for the project.
+        person (str): The name of the person who worked on the project.
+        start_time (datetime): The start time of the work entry.
+        end_time (datetime): The end time of the work entry.
+        description (str): A brief description of the work performed.
+    """
+
     def __init__(self, project_number, person, start_time, end_time, description):
+        """
+        Initializes a new instance of the WorkEntry class.
+
+        Args:
+            project_number (str): The identifier for the project.
+            person (str): The name of the person who worked on the project.
+            start_time (datetime): The start time of the work entry.
+            end_time (datetime): The end time of the work entry.
+            description (str): A brief description of the work performed.
+        """
         self.project_number = project_number
         self.person = person
         self.start_time = start_time
@@ -10,26 +31,55 @@ class WorkEntry:
         self.description = description
 
 class WorkTracker:
-    def __init__(self):
-        self.create_table()
+    """
+    A class to track work entries for various projects.
 
-    def create_table(self):
-        conn = create_connection()
-        cursor = conn.cursor()
-        cursor.execute('''
-            CREATE TABLE IF NOT EXISTS work_entries (
-                project_number TEXT NOT NULL,
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                person TEXT NOT NULL,
-                start_time TEXT NOT NULL,
-                end_time TEXT NOT NULL,
-                description TEXT NOT NULL
-            )
-        ''')
-        conn.commit()
-        conn.close()
+    Methods:
+        create_table(): Creates the work_entries table if it does not exist.
+        add_entry(project_number, person, start_time, end_time, description): Adds a new work
+            entry to the database.
+        get_entries(): Retrieves all work entries from the database.
+        get_last_entry(): Retrieves the most recent work entry from the database.
+        print_current_entry_time_spent(): Prints the time spent on the most recent work entry.
+        get_total_time_spent(): Calculates the total time spent on each project.
+    """
+
+    def __init__(self):
+        """Initializes the WorkTracker and creates the work_entries table."""
+        #TODO: Use the create_table method from the database module
+        create_table()
+
+    # def create_table(self):
+    #     """
+    #     Creates the work_entries table in the database if it does not already exist.
+    #     The table includes columns for project number, entry ID, person, start time, end time, and description.
+    #     """
+    #     conn = create_connection()
+    #     cursor = conn.cursor()
+    #     cursor.execute('''
+    #         CREATE TABLE IF NOT EXISTS work_entries (
+    #             project_number TEXT NOT NULL,
+    #             id INTEGER PRIMARY KEY AUTOINCREMENT,
+    #             person TEXT NOT NULL,
+    #             start_time TEXT NOT NULL,
+    #             end_time TEXT NOT NULL,
+    #             description TEXT NOT NULL
+    #         )
+    #     ''')
+    #     conn.commit()
+    #     conn.close()
 
     def add_entry(self, project_number, person, start_time, end_time, description):
+        """
+        Adds a new work entry to the work_entries table.
+
+        Args:
+            project_number (str): The identifier for the project.
+            person (str): The name of the person who worked on the project.
+            start_time (str): The start time of the work entry.
+            end_time (str): The end time of the work entry.
+            description (str): A brief description of the work performed.
+        """
         conn = create_connection()
         cursor = conn.cursor()
         cursor.execute('''
@@ -40,14 +90,27 @@ class WorkTracker:
         conn.close()
 
     def get_entries(self):
+        """
+        Retrieves all work entries from the work_entries table.
+
+        Returns:
+            list: A list of WorkEntry objects representing all work entries.
+        """
         conn = create_connection()
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM work_entries')
         rows = cursor.fetchall()
         conn.close()
+        #TODO: Use a work entry object to represent each row
         return [WorkEntry(row[0], row[2], row[3], row[4], row[5]) for row in rows]
 
     def get_last_entry(self):
+        """
+        Retrieves the most recent work entry from the work_entries table.
+
+        Returns:
+            WorkEntry: The most recent work entry, or None if no entries exist.
+        """
         conn = create_connection()
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM work_entries ORDER BY id DESC LIMIT 1')
@@ -55,28 +118,40 @@ class WorkTracker:
         conn.close()
         return [WorkEntry(row[0], row[2], row[3], row[4], row[5]) if row else None]
 
-
     def print_current_entry_time_spent(self):
+        """
+        Prints the time spent on the most recent work entry in hours.
+        If no entries exist, prints a message indicating no current entry.
+        """
         try:
             conn = create_connection()
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT SUM(julianday(end_time) - julianday(start_time)) * 24 AS total_hours
-                FROM work_entries ORDER BY id DESC LIMIT 1
-            ''')
+                SELECT project_number, julianday(end_time), julianday(start_time)
+                FROM work_entries ORDER BY id DESC LIMIT 1''')
             row = cursor.fetchone()
             if row:
-                print(f"Current entry time spent: {row[0]:.2f} hours")
+                current_time = (row[1] - row[2]) * 24
+                print(f"Current entry time spent on {row[0]}: {current_time:.2f} hours")
             else:
                 print("No current entry")
+        except sqlite3.DatabaseError as db_err:
+            print(f"Database error occurred: {db_err}")
+        except sqlite3.OperationalError as op_err:
+            print(f"Operational error occurred: {op_err}")
         except Exception as e:
             print(f"An error occurred: {e}")
         finally:
             if conn:
                 conn.close()
-     
 
     def get_total_time_spent(self):
+        """
+        Calculates the total time spent on each project.
+
+        Returns:
+            dict: A dictionary where keys are project numbers and values are total hours spent.
+        """
         conn = create_connection()
         cursor = conn.cursor()
         cursor.execute('''
