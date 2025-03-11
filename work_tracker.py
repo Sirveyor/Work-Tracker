@@ -46,29 +46,10 @@ class WorkTracker:
 
     def __init__(self):
         """Initializes the WorkTracker and creates the work_entries table."""
-        #TODO: Use the create_table method from the database module
+        #Done ! TODO: Use the create_table method from the database module
         create_table()
 
-    # def create_table(self):
-    #     """
-    #     Creates the work_entries table in the database if it does not already exist.
-    #     The table includes columns for project number, entry ID, person, start time, end time, and description.
-    #     """
-    #     conn = create_connection()
-    #     cursor = conn.cursor()
-    #     cursor.execute('''
-    #         CREATE TABLE IF NOT EXISTS work_entries (
-    #             project_number TEXT NOT NULL,
-    #             id INTEGER PRIMARY KEY AUTOINCREMENT,
-    #             person TEXT NOT NULL,
-    #             start_time TEXT NOT NULL,
-    #             end_time TEXT NOT NULL,
-    #             description TEXT NOT NULL
-    #         )
-    #     ''')
-    #     conn.commit()
-    #     conn.close()
-
+    
     def add_entry(self, project_number, person, start_time, end_time, description):
         """
         Adds a new work entry to the work_entries table.
@@ -132,7 +113,7 @@ class WorkTracker:
             row = cursor.fetchone()
             if row:
                 current_time = (row[1] - row[2]) * 24
-                print(f"Current entry time spent on {row[0]}: {current_time:.2f} hours")
+                print(f"Time spent on Job {row[0]}: {current_time:.2f} hours")
             else:
                 print("No current entry")
         except sqlite3.DatabaseError as db_err:

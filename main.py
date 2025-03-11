@@ -137,22 +137,23 @@ def main():
         print("3. Search total time spent by job number")
         print("4. Exit")
         choice = input("Choose an option: ")
-        
+
         if choice == '1':
             person = input(f"Enter your name (default: {last_person}): ") or last_person
             project_number = input("Enter project number: ")
             start_time = get_valid_start_time()
             end_time = get_valid_end_time()
             description = input("Enter a description of the work done: ")
-            
+
             if start_time or end_time:
                 tracker.add_entry(project_number, person, start_time, end_time, description)
-                last_entry = tracker.get_last_entry()
-                print([last_entry])
-                tracker.print_current_entry_time_spent()
+                print('\n+--------------------------------------+')
                 print("Entry added!")
+                print(project_number, person, start_time, end_time, description)
+                tracker.print_current_entry_time_spent()
+                print('\n+--------------------------------------+')
                 save_last_person(person)
-                print('\n')
+
             else:
                 print("Invalid start or end time. Entry not added.")
                 main()
@@ -160,9 +161,8 @@ def main():
         elif choice == '2':
             print("\nCurrent Entries:")
             for entry in tracker.get_entries():
-                print(f"Project {entry.project_number}: {entry.person} worked from {entry.start_time}\
-                    to {entry.end_time}: {entry.description}")
-
+                print(f"Project {entry.project_number}: {entry.person} worked from "
+                      f"{entry.start_time} to {entry.end_time}: {entry.description}")
         elif choice == '3':
             job_number = input("Enter the job number to search for total time spent: ")
             total_time = tracker.get_total_time_spent()
