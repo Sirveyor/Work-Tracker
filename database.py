@@ -12,7 +12,7 @@ def create_connection():
 
 def create_table():
     # TODO: Add a context manager to handle the connection and cursor
-    
+
     """
     Creates a table named 'work_entries' in the SQLite database if it does not already exist.
     

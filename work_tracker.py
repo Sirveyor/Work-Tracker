@@ -70,7 +70,7 @@ class WorkTracker:
         conn.commit()
         conn.close()
 
-    def get_entries(self):
+    def get_all_entries(self):
         """
         Retrieves all work entries from the work_entries table.
 

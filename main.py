@@ -142,7 +142,11 @@ def main():
             person = input(f"Enter your name (default: {last_person}): ") or last_person
             project_number = input("Enter project number: ")
             start_time = get_valid_start_time()
+            if start_time is None:
+                main()
             end_time = get_valid_end_time()
+            if end_time is None:
+                main()
             description = input("Enter a description of the work done: ")
 
             if start_time or end_time:
@@ -160,16 +164,22 @@ def main():
 
         elif choice == '2':
             print("\nCurrent Entries:")
-            for entry in tracker.get_entries():
+            for entry in tracker.get_all_entries():
                 print(f"Project {entry.project_number}: {entry.person} worked from "
                       f"{entry.start_time} to {entry.end_time}: {entry.description}")
-        elif choice == '3':
+        elif choice == '3': #TODO: Implement print each row of the table from the select query
             job_number = input("Enter the job number to search for total time spent: ")
             total_time = tracker.get_total_time_spent()
+            print('\n+--------------------------------------+')
             if job_number in total_time:
+                for entry in tracker.get_all_entries():
+                    if entry.project_number == job_number:
+                        print(f"Project {entry.project_number}: {entry.person} worked from "
+                              f"{entry.start_time} to {entry.end_time}: {entry.description}")
                 print(f"{total_time[job_number]:.2f} hours spent on {job_number}.")
             else:
                 print(f"No entries found for {job_number}.")
+            print('+--------------------------------------+\n')
 
         elif choice == '4':
             break
