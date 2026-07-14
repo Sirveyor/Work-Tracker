@@ -2,8 +2,9 @@ import csv
 import os
 import json
 import logging
+import re
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 from work_tracker import WorkTracker
 
 LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'work_tracker.log')
@@ -59,73 +60,129 @@ def save_last_used(person, project_number):
         json.dump({'last_person': person, 'last_project': project_number}, f)
 
 
-def get_valid_input(prompt, fmt, empty_value, quit_value, invalid_label):
-    """Prompts the user for a value matching a datetime format, with an empty-input
-    default and a quit sentinel, retrying on invalid input.
+def parse_duration(text):
+    """Parses a '+<duration>' shorthand like '+2h', '+90m', or '+1h30m'.
 
     Args:
-        prompt (str): The prompt to display to the user.
-        fmt (str): The strptime/strftime format the input must match.
-        empty_value: Value to return (or zero-arg callable to invoke) on empty input.
-        quit_value: Value to return if the user quits or exhausts their attempts.
-        invalid_label (str): Human-readable description used in the error message.
+        text (str): Candidate text, expected to start with '+'.
 
     Returns:
-        The parsed input string, the resolved empty_value, or quit_value.
+        timedelta: The parsed duration, or None if text isn't a valid
+            duration shorthand (must start with '+' and specify at least
+            hours or minutes).
     """
-    max_attempts = 3
-    attempts = 0
+    if not text.startswith('+'):
+        return None
+    match = re.fullmatch(r'\+(?:(\d+)h)?(?:(\d+)m)?', text, re.IGNORECASE)
+    if not match or not any(match.groups()):
+        return None
+    hours = int(match.group(1) or 0)
+    minutes = int(match.group(2) or 0)
+    return timedelta(hours=hours, minutes=minutes)
 
-    while attempts < max_attempts:
-        value = input(prompt)
 
-        if value.lower() == '':
-            return empty_value() if callable(empty_value) else empty_value
-        elif value.lower() == 'q':
-            return quit_value
+def parse_flexible_time(value, anchor_date):
+    """Parses a time value that may be a full 'YYYY-MM-DD HH:MM' or a
+    time-only 'HH:MM' anchored to a given date.
 
-        try:
-            datetime.strptime(value, fmt)
-            return value
-        except ValueError:
-            attempts += 1
-            print(f"Invalid {invalid_label} format. Please use {fmt}. "
-                  f"{max_attempts - attempts} attempts remaining.")
+    Args:
+        value (str): The user-entered value.
+        anchor_date (str): 'YYYY-MM-DD' to combine with an HH:MM-only value.
 
-    print("Too many invalid attempts. Please try again later.")
-    return quit_value
+    Returns:
+        str: A normalized 'YYYY-MM-DD HH:MM' string, or None if value matches
+            neither format.
+    """
+    try:
+        datetime.strptime(value, '%Y-%m-%d %H:%M')
+        return value
+    except ValueError:
+        pass
+    try:
+        datetime.strptime(value, '%H:%M')
+        return f"{anchor_date} {value}"
+    except ValueError:
+        return None
 
 
 def get_valid_start_time():
-    """Prompts the user for a start time and validates the input.
+    """Prompts the user for a start time and validates the input. Accepts a
+    full 'YYYY-MM-DD HH:MM', a time-only 'HH:MM' anchored to today, blank for
+    now, or 'q' to quit.
 
     Returns:
       str: A valid start time string in the format '%Y-%m-%d %H:%M',
-           or None if the input is invalid after several attempts.
+           or None if the input is invalid after several attempts or the
+           user quits.
     """
-    return get_valid_input(
-        "Enter start time (YYYY-MM-DD HH:MM or <Enter> for now), 'q' to quit: ",
-        '%Y-%m-%d %H:%M',
-        empty_value=lambda: datetime.now().strftime('%Y-%m-%d %H:%M'),
-        quit_value=None,
-        invalid_label="date or time",
-    )
+    max_attempts = 3
+    attempts = 0
+    today = datetime.now().strftime('%Y-%m-%d')
+
+    while attempts < max_attempts:
+        value = input("Enter start time (YYYY-MM-DD HH:MM, HH:MM for today, "
+                       "or <Enter> for now), 'q' to quit: ").strip()
+
+        if value == '':
+            return datetime.now().strftime('%Y-%m-%d %H:%M')
+        if value.lower() == 'q':
+            return None
+
+        parsed = parse_flexible_time(value, today)
+        if parsed:
+            return parsed
+
+        attempts += 1
+        print("Invalid date or time format. Please use YYYY-MM-DD HH:MM or HH:MM. "
+              f"{max_attempts - attempts} attempts remaining.")
+
+    print("Too many invalid attempts. Please try again later.")
+    return None
 
 
-def get_valid_end_time():
-    """Prompts the user for a end time and validates the input.
+def get_valid_end_time(start_time):
+    """Prompts the user for an end time and validates the input. Accepts a
+    full 'YYYY-MM-DD HH:MM', a time-only 'HH:MM' anchored to start_time's
+    date, a '+<duration>' shorthand like '+2h' or '+90m' relative to
+    start_time, blank for now, or 'q' to quit.
+
+    Args:
+        start_time (str): The already-collected start time, used to anchor
+            HH:MM-only input and resolve duration shorthands.
 
     Returns:
       str: A valid end time string in the format '%Y-%m-%d %H:%M',
-           or None if the input is invalid after several attempts.
+           or None if the input is invalid after several attempts or the
+           user quits.
     """
-    return get_valid_input(
-        "Enter end time (YYYY-MM-DD HH:MM or <Enter> for now, 'q' to quit): ",
-        '%Y-%m-%d %H:%M',
-        empty_value=lambda: datetime.now().strftime('%Y-%m-%d %H:%M'),
-        quit_value=None,
-        invalid_label="date or time",
-    )
+    max_attempts = 3
+    attempts = 0
+    anchor_date = start_time.split(' ')[0]
+
+    while attempts < max_attempts:
+        value = input("Enter end time (YYYY-MM-DD HH:MM, HH:MM, +Nh/+Nm duration, "
+                       "or <Enter> for now), 'q' to quit: ").strip()
+
+        if value == '':
+            return datetime.now().strftime('%Y-%m-%d %H:%M')
+        if value.lower() == 'q':
+            return None
+
+        duration = parse_duration(value)
+        if duration is not None:
+            start_dt = datetime.strptime(start_time, '%Y-%m-%d %H:%M')
+            return (start_dt + duration).strftime('%Y-%m-%d %H:%M')
+
+        parsed = parse_flexible_time(value, anchor_date)
+        if parsed:
+            return parsed
+
+        attempts += 1
+        print("Invalid end time. Use YYYY-MM-DD HH:MM, HH:MM, or +Nh/+Nm. "
+              f"{max_attempts - attempts} attempts remaining.")
+
+    print("Too many invalid attempts. Please try again later.")
+    return None
 
 
 def get_valid_date():
@@ -135,24 +192,42 @@ def get_valid_date():
       str: A valid date string in the format 'YYYY-MM-DD',
            or None if the input is invalid or user quits.
     """
-    return get_valid_input(
-        "Enter date (YYYY-MM-DD or <Enter> to skip), 'q' to quit: ",
-        '%Y-%m-%d',
-        empty_value=None,
-        quit_value='quit',
-        invalid_label="date",
-    )
+    max_attempts = 3
+    attempts = 0
+
+    while attempts < max_attempts:
+        date_input = input("Enter date (YYYY-MM-DD or <Enter> to skip), 'q' to quit: ")
+
+        if date_input.lower() == '':
+            return None  # Skip this date
+        elif date_input.lower() == 'q':
+            return 'quit'
+
+        try:
+            datetime.strptime(date_input, '%Y-%m-%d')
+            return date_input
+        except ValueError:
+            attempts += 1
+            print(f"Invalid date format. Please use YYYY-MM-DD. "
+                  f"{max_attempts - attempts} attempts remaining.")
+
+    print("Too many invalid attempts. Please try again later.")
+    return 'quit'
 
 
-def get_valid_edit_time(prompt, fmt, current_value):
+def get_valid_edit_time(prompt, current_value, anchor_date, relative_to=None):
     """Prompts for a datetime field during an edit. Blank input keeps
     current_value; 'q' cancels; anything else is re-prompted on invalid
-    format instead of aborting.
+    format instead of aborting. Accepts a full 'YYYY-MM-DD HH:MM', a
+    time-only 'HH:MM' anchored to anchor_date, or (when relative_to is
+    given) a '+<duration>' shorthand relative to that time.
 
     Args:
         prompt (str): The prompt to display to the user.
-        fmt (str): The strptime format the input must match.
         current_value (str): The value to keep on blank input.
+        anchor_date (str): 'YYYY-MM-DD' to combine with an HH:MM-only value.
+        relative_to (str, optional): A 'YYYY-MM-DD HH:MM' time to resolve a
+            '+<duration>' shorthand against (used when editing end time).
 
     Returns:
         str: The new or kept value, or None if the user quit.
@@ -163,12 +238,20 @@ def get_valid_edit_time(prompt, fmt, current_value):
             return current_value
         if value.lower() == 'q':
             return None
-        try:
-            datetime.strptime(value, fmt)
-            return value
-        except ValueError:
-            print(f"Invalid format. Please use {fmt}, leave blank to keep "
-                  f"'{current_value}', or 'q' to cancel.")
+
+        if relative_to:
+            duration = parse_duration(value)
+            if duration is not None:
+                start_dt = datetime.strptime(relative_to, '%Y-%m-%d %H:%M')
+                return (start_dt + duration).strftime('%Y-%m-%d %H:%M')
+
+        parsed = parse_flexible_time(value, anchor_date)
+        if parsed:
+            return parsed
+
+        duration_hint = "+Nh/+Nm, " if relative_to else ""
+        print(f"Invalid format. Please use YYYY-MM-DD HH:MM, HH:MM, {duration_hint}"
+              f"leave blank to keep '{current_value}', or 'q' to cancel.")
 
 
 def prompt_for_valid_time_range(get_start, get_end):
@@ -178,7 +261,7 @@ def prompt_for_valid_time_range(get_start, get_end):
 
     Args:
         get_start: Zero-arg callable returning a start time string, or None to cancel.
-        get_end: Zero-arg callable returning an end time string, or None to cancel.
+        get_end: One-arg callable(start_time) returning an end time string, or None to cancel.
 
     Returns:
         tuple: (start_time, end_time), or (None, None) if the user cancelled.
@@ -189,7 +272,7 @@ def prompt_for_valid_time_range(get_start, get_end):
         if start_time is None:
             return None, None
 
-        end_time = get_end()
+        end_time = get_end(start_time)
         if end_time is None:
             return None, None
 
@@ -500,16 +583,21 @@ def main():
 
             print("\nCurrent entry:")
             print(format_entry(entry))
-            print("Leave a field blank to keep its current value; enter 'q' at a time prompt to cancel.\n")
+            print("Leave a field blank to keep its current value. Times also accept HH:MM "
+                  "(same day) or, for end time, +Nh/+Nm relative to start. Enter 'q' at a "
+                  "time prompt to cancel.\n")
 
             project_number = input(f"Project number [{entry.project_number}]: ").strip() or entry.project_number
             person = input(f"Person [{entry.person}]: ").strip() or entry.person
 
+            entry_start_date = entry.start_time.split(' ')[0]
             start_time, end_time = prompt_for_valid_time_range(
                 lambda: get_valid_edit_time(
-                    f"Start time [{entry.start_time}] (YYYY-MM-DD HH:MM): ", '%Y-%m-%d %H:%M', entry.start_time),
-                lambda: get_valid_edit_time(
-                    f"End time [{entry.end_time}] (YYYY-MM-DD HH:MM): ", '%Y-%m-%d %H:%M', entry.end_time),
+                    f"Start time [{entry.start_time}] (YYYY-MM-DD HH:MM or HH:MM): ",
+                    entry.start_time, anchor_date=entry_start_date),
+                lambda start_time: get_valid_edit_time(
+                    f"End time [{entry.end_time}] (YYYY-MM-DD HH:MM, HH:MM, or +Nh/+Nm): ",
+                    entry.end_time, anchor_date=start_time.split(' ')[0], relative_to=start_time),
             )
             if start_time is None:
                 print("Edit cancelled.")

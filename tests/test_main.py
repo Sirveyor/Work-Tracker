@@ -1,7 +1,23 @@
 import csv
+from datetime import timedelta
 
-from main import export_entries_to_csv
+import pytest
+
+from main import (
+    export_entries_to_csv,
+    get_valid_edit_time,
+    get_valid_end_time,
+    get_valid_start_time,
+    parse_duration,
+    parse_flexible_time,
+)
 from work_tracker import WorkEntry
+
+
+def queued_input(monkeypatch, values):
+    """Feeds a fixed queue of responses to successive input() calls."""
+    responses = iter(values)
+    monkeypatch.setattr("builtins.input", lambda prompt='': next(responses))
 
 
 def test_export_entries_to_csv(tmp_path):
@@ -40,3 +56,68 @@ def test_export_entries_to_csv_unwritable_path_returns_false():
     unwritable_path = "/no/such/directory/export.csv"
 
     assert export_entries_to_csv(entries, unwritable_path) is False
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("+2h", timedelta(hours=2)),
+    ("+90m", timedelta(minutes=90)),
+    ("+1h30m", timedelta(hours=1, minutes=30)),
+    ("+2H", timedelta(hours=2)),  # case-insensitive
+])
+def test_parse_duration_valid(text, expected):
+    assert parse_duration(text) == expected
+
+
+@pytest.mark.parametrize("text", ["+", "2h", "+2x", "+2hr", ""])
+def test_parse_duration_invalid(text):
+    assert parse_duration(text) is None
+
+
+def test_parse_flexible_time_full_datetime():
+    assert parse_flexible_time("2026-01-05 09:30", "2026-01-01") == "2026-01-05 09:30"
+
+
+def test_parse_flexible_time_hh_mm_anchored():
+    assert parse_flexible_time("09:30", "2026-01-05") == "2026-01-05 09:30"
+
+
+def test_parse_flexible_time_invalid():
+    assert parse_flexible_time("not a time", "2026-01-05") is None
+
+
+def test_get_valid_start_time_accepts_hh_mm_shorthand(monkeypatch):
+    queued_input(monkeypatch, ["09:30"])
+    result = get_valid_start_time()
+    assert result.endswith(" 09:30")
+    assert len(result) == len("2026-01-05 09:30")
+
+
+def test_get_valid_end_time_accepts_duration_shorthand(monkeypatch):
+    queued_input(monkeypatch, ["+2h"])
+    result = get_valid_end_time("2026-01-05 09:00")
+    assert result == "2026-01-05 11:00"
+
+
+def test_get_valid_end_time_accepts_hh_mm_anchored_to_start_date(monkeypatch):
+    queued_input(monkeypatch, ["17:00"])
+    result = get_valid_end_time("2026-01-05 09:00")
+    assert result == "2026-01-05 17:00"
+
+
+def test_get_valid_end_time_retries_on_invalid_then_accepts(monkeypatch):
+    queued_input(monkeypatch, ["nonsense", "+1h"])
+    result = get_valid_end_time("2026-01-05 09:00")
+    assert result == "2026-01-05 10:00"
+
+
+def test_get_valid_edit_time_blank_keeps_current(monkeypatch):
+    queued_input(monkeypatch, [""])
+    result = get_valid_edit_time("prompt: ", "2026-01-05 09:00", anchor_date="2026-01-05")
+    assert result == "2026-01-05 09:00"
+
+
+def test_get_valid_edit_time_accepts_duration_relative_to_start(monkeypatch):
+    queued_input(monkeypatch, ["+30m"])
+    result = get_valid_edit_time(
+        "prompt: ", "2026-01-05 10:00", anchor_date="2026-01-05", relative_to="2026-01-05 09:00")
+    assert result == "2026-01-05 09:30"
