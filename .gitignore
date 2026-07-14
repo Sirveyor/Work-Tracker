@@ -1,4 +1,34 @@
+# Qodo
 .qodo
+
+# Database files
 work_tracker.db.test
 work_tracker.db.bak
 work_tracker copy.db
+*.db
+
+# Rust
+/target/
+Cargo.lock
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data directory
+data/
+last_person.json
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Build artifacts
+distribution/
+*.zip
+backup/
+*.bak.py

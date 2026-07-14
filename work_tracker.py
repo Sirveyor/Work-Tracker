@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime, date
 from database import create_connection, create_table
 
 class WorkEntry:
@@ -142,4 +143,120 @@ class WorkTracker:
         ''')
         results = cursor.fetchall()
         conn.close()
+        return {row[0]: row[1] for row in results}
+
+    def filter_entries_by_date_range(self, start_date=None, end_date=None, project_number=None):
+        """
+        Retrieves work entries filtered by date range and optionally by project number.
+
+        Args:
+            start_date (str, optional): Start date in 'YYYY-MM-DD' format. If None, no lower bound.
+            end_date (str, optional): End date in 'YYYY-MM-DD' format. If None, no upper bound.
+            project_number (str, optional): Specific project number to filter by.
+
+        Returns:
+            list: A list of WorkEntry objects matching the filter criteria.
+        """
+        conn = create_connection()
+        cursor = conn.cursor()
+        
+        # Build the SQL query dynamically based on provided filters
+        query = 'SELECT * FROM work_entries WHERE 1=1'
+        params = []
+        
+        if start_date:
+            query += ' AND date(start_time) >= ?'
+            params.append(start_date)
+            
+        if end_date:
+            query += ' AND date(start_time) <= ?'
+            params.append(end_date)
+            
+        if project_number:
+            query += ' AND project_number = ?'
+            params.append(project_number)
+            
+        query += ' ORDER BY start_time'
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        conn.close()
+        
+        return [WorkEntry(row[0], row[2], row[3], row[4], row[5]) for row in rows]
+
+    def filter_entries_by_today(self, project_number=None):
+        """
+        Retrieves work entries for today.
+
+        Args:
+            project_number (str, optional): Specific project number to filter by.
+
+        Returns:
+            list: A list of WorkEntry objects for today.
+        """
+        today = date.today().strftime('%Y-%m-%d')
+        return self.filter_entries_by_date_range(start_date=today, end_date=today, project_number=project_number)
+
+    def filter_entries_by_this_week(self, project_number=None):
+        """
+        Retrieves work entries for the current week (Monday to Sunday).
+
+        Args:
+            project_number (str, optional): Specific project number to filter by.
+
+        Returns:
+            list: A list of WorkEntry objects for this week.
+        """
+        today = date.today()
+        # Calculate Monday of current week
+        days_since_monday = today.weekday()
+        monday = today.replace(day=today.day - days_since_monday)
+        # Calculate Sunday of current week
+        sunday = today.replace(day=today.day + (6 - days_since_monday))
+        
+        return self.filter_entries_by_date_range(
+            start_date=monday.strftime('%Y-%m-%d'),
+            end_date=sunday.strftime('%Y-%m-%d'),
+            project_number=project_number
+        )
+
+    def get_total_time_by_date_range(self, start_date=None, end_date=None, project_number=None):
+        """
+        Calculates total time spent within a date range, optionally filtered by project.
+
+        Args:
+            start_date (str, optional): Start date in 'YYYY-MM-DD' format.
+            end_date (str, optional): End date in 'YYYY-MM-DD' format.
+            project_number (str, optional): Specific project number to filter by.
+
+        Returns:
+            dict: A dictionary where keys are project numbers and values are total hours spent.
+        """
+        conn = create_connection()
+        cursor = conn.cursor()
+        
+        query = '''
+            SELECT project_number, SUM(julianday(end_time) - julianday(start_time)) * 24 AS total_hours
+            FROM work_entries WHERE 1=1
+        '''
+        params = []
+        
+        if start_date:
+            query += ' AND date(start_time) >= ?'
+            params.append(start_date)
+            
+        if end_date:
+            query += ' AND date(start_time) <= ?'
+            params.append(end_date)
+            
+        if project_number:
+            query += ' AND project_number = ?'
+            params.append(project_number)
+            
+        query += ' GROUP BY project_number'
+        
+        cursor.execute(query, params)
+        results = cursor.fetchall()
+        conn.close()
+        
         return {row[0]: row[1] for row in results}
