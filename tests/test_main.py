@@ -10,6 +10,7 @@ from main import (
     get_valid_start_time,
     parse_duration,
     parse_flexible_time,
+    print_entries_table,
 )
 from work_tracker import WorkEntry
 
@@ -121,3 +122,30 @@ def test_get_valid_edit_time_accepts_duration_relative_to_start(monkeypatch):
     result = get_valid_edit_time(
         "prompt: ", "2026-01-05 10:00", anchor_date="2026-01-05", relative_to="2026-01-05 09:00")
     assert result == "2026-01-05 09:30"
+
+
+def test_print_entries_table_aligns_columns(capsys):
+    entries = [
+        WorkEntry(1, "P1", "Alice", "2026-01-05 09:00", "2026-01-05 10:00", "short"),
+        WorkEntry(22, "P200", "Bob", "2026-01-06 09:00", "2026-01-06 11:00", "a much longer description"),
+    ]
+
+    print_entries_table(entries)
+    lines = capsys.readouterr().out.rstrip("\n").split("\n")
+
+    # header, separator, and one row per entry
+    assert len(lines) == 4
+    assert lines[0].startswith("ID")
+    assert lines[1].startswith("--")
+    # the ID column should be wide enough for '22', so '1' is padded to line up under it
+    assert lines[2][:2] == "1 "
+    assert lines[3][:2] == "22"
+
+
+def test_print_entries_table_empty_list(capsys):
+    print_entries_table([])
+    lines = capsys.readouterr().out.rstrip("\n").split("\n")
+
+    # just header and separator, no data rows
+    assert len(lines) == 2
+    assert lines[0].startswith("ID")

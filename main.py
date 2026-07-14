@@ -297,6 +297,33 @@ def format_entry(entry):
             f"{entry.start_time} to {entry.end_time}: {entry.description}")
 
 
+def print_entries_table(entries):
+    """Prints work entries as a column-aligned table, sized to the widest
+    value in each column.
+
+    Args:
+        entries (list): List of WorkEntry objects to display.
+    """
+    headers = ["ID", "Project", "Person", "Start", "End", "Description"]
+    rows = [
+        [str(e.id), e.project_number, e.person, e.start_time, e.end_time, e.description]
+        for e in entries
+    ]
+
+    widths = [
+        max(len(headers[i]), max((len(row[i]) for row in rows), default=0))
+        for i in range(len(headers))
+    ]
+
+    def format_row(row):
+        return "  ".join(value.ljust(width) for value, width in zip(row, widths))
+
+    print(format_row(headers))
+    print("  ".join("-" * width for width in widths))
+    for row in rows:
+        print(format_row(row))
+
+
 def format_preview(project_number, person, start_time, end_time, description):
     """Format not-yet-saved entry fields for a confirmation prompt.
 
@@ -361,8 +388,7 @@ def display_filtered_entries(entries, filter_description):
     print("+--------------------------------------+")
 
     if entries:
-        for entry in entries:
-            print(format_entry(entry))
+        print_entries_table(entries)
         print(f"\nTotal entries found: {len(entries)}")
     else:
         print("No entries found matching the filter criteria.")
@@ -387,8 +413,7 @@ def get_entry_for_action(tracker, action_label):
         return None
 
     print("\nMost recent entries (see options 2 or 4 for the full list):")
-    for entry in recent_entries:
-        print(format_entry(entry))
+    print_entries_table(recent_entries)
 
     entry_id_input = input(f"\nEnter the entry ID to {action_label} (or <Enter> to cancel): ").strip()
     if not entry_id_input:
@@ -493,16 +518,18 @@ def main():
 
         elif choice == '2':
             print("\nCurrent Entries:")
-            for entry in tracker.get_all_entries():
-                print(format_entry(entry))
+            entries = tracker.get_all_entries()
+            if entries:
+                print_entries_table(entries)
+            else:
+                print("No entries found.")
         elif choice == '3':
             job_number = input("Enter the job number to search for total time spent: ")
             total_time = tracker.get_total_time_spent()
             print('\n+--------------------------------------+')
             if job_number in total_time:
-                for entry in tracker.get_all_entries():
-                    if entry.project_number == job_number:
-                        print(format_entry(entry))
+                matching_entries = [e for e in tracker.get_all_entries() if e.project_number == job_number]
+                print_entries_table(matching_entries)
                 print(f"{total_time[job_number]:.2f} hours spent on {job_number}.")
             else:
                 print(f"No entries found for {job_number}.")
