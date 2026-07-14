@@ -204,6 +204,35 @@ def format_entry(entry):
             f"{entry.start_time} to {entry.end_time}: {entry.description}")
 
 
+def format_preview(project_number, person, start_time, end_time, description):
+    """Format not-yet-saved entry fields for a confirmation prompt.
+
+    Args:
+        project_number (str): The identifier for the project.
+        person (str): The name of the person who worked on the project.
+        start_time (str): The start time of the work entry.
+        end_time (str): The end time of the work entry.
+        description (str): A brief description of the work performed.
+
+    Returns:
+        str: A one-line human-readable representation of the pending entry.
+    """
+    return (f"Project {project_number}: {person} worked from "
+            f"{start_time} to {end_time}: {description}")
+
+
+def confirm(prompt):
+    """Asks the user to type 'y' to proceed.
+
+    Args:
+        prompt (str): The yes/no question to ask.
+
+    Returns:
+        bool: True if the user typed 'y' (case-insensitive), False otherwise.
+    """
+    return input(prompt).strip().lower() == 'y'
+
+
 def display_filtered_entries(entries, filter_description):
     """Display a list of work entries with a descriptive header.
 
@@ -320,6 +349,12 @@ def main():
             print(f"End time: {end_time}")
 
             description = input("Enter a description of the work done: ")
+
+            print("\nNew entry:")
+            print(format_preview(project_number, person, start_time, end_time, description))
+            if not confirm("Type 'y' to confirm adding this entry: "):
+                print("Entry not added.")
+                continue
 
             if tracker.add_entry(project_number, person, start_time, end_time, description):
                 print('\n+--------------------------------------+')
@@ -442,6 +477,12 @@ def main():
 
             description = input(f"Description [{entry.description}]: ").strip() or entry.description
 
+            print("\nUpdated entry will be:")
+            print(format_preview(project_number, person, start_time, end_time, description))
+            if not confirm("Type 'y' to confirm this update: "):
+                print("Edit cancelled.")
+                continue
+
             if tracker.update_entry(entry.id, project_number, person, start_time, end_time, description):
                 print("Entry updated.")
             else:
@@ -454,8 +495,7 @@ def main():
 
             print("\nEntry to delete:")
             print(format_entry(entry))
-            confirm = input("Type 'y' to confirm deletion: ").strip().lower()
-            if confirm == 'y':
+            if confirm("Type 'y' to confirm deletion: "):
                 if tracker.delete_entry(entry.id):
                     print("Entry deleted.")
                 else:
