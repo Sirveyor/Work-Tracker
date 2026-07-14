@@ -1,5 +1,6 @@
 import os
 import json
+import sqlite3
 from datetime import datetime
 from work_tracker import WorkTracker
 
@@ -212,7 +213,12 @@ def main():
         6. Delete an entry: Remove an existing entry by its ID.
         7. Exit: Exits the application.
     """
-    tracker = WorkTracker()
+    try:
+        tracker = WorkTracker()
+    except sqlite3.Error as e:
+        print(f"Fatal: could not initialize the database: {e}")
+        raise SystemExit(1)
+
     last_person = load_last_person()
     print("Welcome to the Work Tracker!")
 

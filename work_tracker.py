@@ -71,12 +71,15 @@ class WorkTracker:
     """
 
     def __init__(self):
-        """Initializes the WorkTracker and creates the work_entries table."""
-        try:
-            create_table()
-        except sqlite3.Error as e:
-            print(f"Fatal: could not initialize the database: {e}")
-            raise SystemExit(1)
+        """
+        Initializes the WorkTracker and creates the work_entries table.
+
+        Raises:
+            sqlite3.Error: If the database table could not be created. Callers
+                that want the process to exit on this failure should catch it
+                themselves; WorkTracker leaves that decision to the caller.
+        """
+        create_table()
 
     @db_operation(default=False)
     def add_entry(self, project_number, person, start_time, end_time, description):

@@ -25,6 +25,19 @@ def freeze_today(monkeypatch, fixed_today):
     monkeypatch.setattr("work_tracker.date", FrozenDate)
 
 
+def test_init_raises_instead_of_exiting_on_db_failure(monkeypatch, tmp_path):
+    db_path = tmp_path / "test_work_tracker.db"
+    monkeypatch.setattr(database, "DB_PATH", str(db_path))
+
+    def broken_create_table():
+        raise sqlite3.OperationalError("simulated: cannot create table")
+
+    monkeypatch.setattr("work_tracker.create_table", broken_create_table)
+
+    with pytest.raises(sqlite3.OperationalError):
+        WorkTracker()
+
+
 def test_add_and_get_all_entries(tracker):
     assert tracker.add_entry("P1", "Alice", "2026-01-05 09:00", "2026-01-05 10:30", "did work") is True
 
