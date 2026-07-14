@@ -1,4 +1,7 @@
+import os
 import sqlite3
+
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'work_tracker.db')
 
 def create_connection():
     """
@@ -7,7 +10,7 @@ def create_connection():
     Returns:
         sqlite3.Connection: A connection object to the SQLite database.
     """
-    conn = sqlite3.connect('work_tracker.db')
+    conn = sqlite3.connect(DB_PATH)
     return conn
 
 def create_table():

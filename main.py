@@ -45,6 +45,43 @@ def save_last_person(person):
         json.dump({'last_person': person}, f)
 
 
+def get_valid_input(prompt, fmt, empty_value, quit_value, invalid_label):
+    """Prompts the user for a value matching a datetime format, with an empty-input
+    default and a quit sentinel, retrying on invalid input.
+
+    Args:
+        prompt (str): The prompt to display to the user.
+        fmt (str): The strptime/strftime format the input must match.
+        empty_value: Value to return (or zero-arg callable to invoke) on empty input.
+        quit_value: Value to return if the user quits or exhausts their attempts.
+        invalid_label (str): Human-readable description used in the error message.
+
+    Returns:
+        The parsed input string, the resolved empty_value, or quit_value.
+    """
+    max_attempts = 3
+    attempts = 0
+
+    while attempts < max_attempts:
+        value = input(prompt)
+
+        if value.lower() == '':
+            return empty_value() if callable(empty_value) else empty_value
+        elif value.lower() == 'q':
+            return quit_value
+
+        try:
+            datetime.strptime(value, fmt)
+            return value
+        except ValueError:
+            attempts += 1
+            print(f"Invalid {invalid_label} format. Please use {fmt}. "
+                  f"{max_attempts - attempts} attempts remaining.")
+
+    print("Too many invalid attempts. Please try again later.")
+    return quit_value
+
+
 def get_valid_start_time():
     """Prompts the user for a start time and validates the input.
 
@@ -52,28 +89,14 @@ def get_valid_start_time():
       str: A valid start time string in the format '%Y-%m-%d %H:%M',
            or None if the input is invalid after several attempts.
     """
+    return get_valid_input(
+        "Enter start time (YYYY-MM-DD HH:MM or <Enter> for now), 'q' to quit: ",
+        '%Y-%m-%d %H:%M',
+        empty_value=lambda: datetime.now().strftime('%Y-%m-%d %H:%M'),
+        quit_value=None,
+        invalid_label="date or time",
+    )
 
-    max_attempts = 3
-    attempts = 0
-
-    while attempts < max_attempts:
-        start_time_input = input("Enter start time (YYYY-MM-DD HH:MM or <Enter> for now), 'q' to quit: ")
-
-        if start_time_input.lower() == '':
-            return datetime.now().strftime('%Y-%m-%d %H:%M')
-        elif start_time_input.lower() == 'q':
-            return None
-
-        try:
-            datetime.strptime(start_time_input, '%Y-%m-%d %H:%M')
-            return start_time_input
-        except ValueError:
-            attempts += 1
-            print(f"Invalid date or time format. Please use YYYY-MM-DD HH:MM. \
-                {max_attempts - attempts} attempts remaining.")
-
-    print("Too many invalid attempts. Please try again later.")
-    return None
 
 def get_valid_end_time():
     """Prompts the user for a end time and validates the input.
@@ -82,28 +105,13 @@ def get_valid_end_time():
       str: A valid end time string in the format '%Y-%m-%d %H:%M',
            or None if the input is invalid after several attempts.
     """
-
-    max_attempts = 3
-    attempts = 0
-
-    while attempts < max_attempts:
-        end_time_input = input("Enter end time (YYYY-MM-DD HH:MM or <Enter> for now, 'q' to quit): ")
-
-        if end_time_input.lower() == '':
-            return datetime.now().strftime('%Y-%m-%d %H:%M')
-        elif end_time_input.lower() == 'q':
-            return None
-
-        try:
-            datetime.strptime(end_time_input, '%Y-%m-%d %H:%M')
-            return end_time_input
-        except ValueError:
-            attempts += 1
-            print(f"Invalid date or time format. Please use YYYY-MM-DD HH:MM. \
-                {max_attempts - attempts} attempts remaining.")
-
-    print("Too many invalid attempts. Please try again later.")
-    return None
+    return get_valid_input(
+        "Enter end time (YYYY-MM-DD HH:MM or <Enter> for now, 'q' to quit): ",
+        '%Y-%m-%d %H:%M',
+        empty_value=lambda: datetime.now().strftime('%Y-%m-%d %H:%M'),
+        quit_value=None,
+        invalid_label="date or time",
+    )
 
 
 def get_valid_date():
@@ -113,28 +121,13 @@ def get_valid_date():
       str: A valid date string in the format 'YYYY-MM-DD',
            or None if the input is invalid or user quits.
     """
-    max_attempts = 3
-    attempts = 0
-
-    while attempts < max_attempts:
-        date_input = input("Enter date (YYYY-MM-DD or <Enter> to skip), 'q' to quit: ")
-
-        if date_input.lower() == '':
-            return None  # Skip this date
-        elif date_input.lower() == 'q':
-            return 'quit'
-
-        try:
-            # Validate date format
-            datetime.strptime(date_input, '%Y-%m-%d')
-            return date_input
-        except ValueError:
-            attempts += 1
-            print(f"Invalid date format. Please use YYYY-MM-DD. "
-                  f"{max_attempts - attempts} attempts remaining.")
-
-    print("Too many invalid attempts. Please try again later.")
-    return 'quit'
+    return get_valid_input(
+        "Enter date (YYYY-MM-DD or <Enter> to skip), 'q' to quit: ",
+        '%Y-%m-%d',
+        empty_value=None,
+        quit_value='quit',
+        invalid_label="date",
+    )
 
 
 def display_filtered_entries(entries, filter_description):

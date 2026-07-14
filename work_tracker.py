@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from database import create_connection, create_table
 
 class WorkEntry:
@@ -98,7 +98,7 @@ class WorkTracker:
         cursor.execute('SELECT * FROM work_entries ORDER BY id DESC LIMIT 1')
         row = cursor.fetchone()
         conn.close()
-        return [WorkEntry(row[0], row[2], row[3], row[4], row[5]) if row else None]
+        return WorkEntry(row[0], row[2], row[3], row[4], row[5]) if row else None
 
     def print_current_entry_time_spent(self):
         """
@@ -208,12 +208,9 @@ class WorkTracker:
             list: A list of WorkEntry objects for this week.
         """
         today = date.today()
-        # Calculate Monday of current week
-        days_since_monday = today.weekday()
-        monday = today.replace(day=today.day - days_since_monday)
-        # Calculate Sunday of current week
-        sunday = today.replace(day=today.day + (6 - days_since_monday))
-        
+        monday = today - timedelta(days=today.weekday())
+        sunday = monday + timedelta(days=6)
+
         return self.filter_entries_by_date_range(
             start_date=monday.strftime('%Y-%m-%d'),
             end_date=sunday.strftime('%Y-%m-%d'),
