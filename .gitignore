@@ -10,6 +10,9 @@ work_tracker copy.db
 # Logs
 *.log
 
+# Exported reports
+*.csv
+
 # Rust
 /target/
 Cargo.lock

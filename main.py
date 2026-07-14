@@ -1,3 +1,4 @@
+import csv
 import os
 import json
 import logging
@@ -221,6 +222,29 @@ def format_preview(project_number, person, start_time, end_time, description):
             f"{start_time} to {end_time}: {description}")
 
 
+def export_entries_to_csv(entries, filepath):
+    """Writes work entries to a CSV file for reporting.
+
+    Args:
+        entries (list): List of WorkEntry objects to export.
+        filepath (str): Destination path for the CSV file.
+
+    Returns:
+        bool: True if the export succeeded, False if it could not be written.
+    """
+    try:
+        with open(filepath, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            writer.writerow(['ID', 'Project Number', 'Person', 'Start Time', 'End Time', 'Description'])
+            for entry in entries:
+                writer.writerow([entry.id, entry.project_number, entry.person,
+                                  entry.start_time, entry.end_time, entry.description])
+        return True
+    except OSError as e:
+        print(f"Could not write to {filepath}: {e}")
+        return False
+
+
 def confirm(prompt):
     """Asks the user to type 'y' to proceed.
 
@@ -309,7 +333,9 @@ def main():
         4. Filter entries by date: Filter and view entries by date range or specific dates.
         5. Edit an entry: Update the fields of an existing entry by its ID.
         6. Delete an entry: Remove an existing entry by its ID.
-        7. Exit: Exits the application.
+        7. Export entries to CSV: Export all, today's, this week's, or a date
+           range of entries to a CSV file for reporting.
+        8. Exit: Exits the application.
     """
     logging.basicConfig(
         filename=LOG_PATH,
@@ -335,7 +361,8 @@ def main():
         print("4. Filter entries by date")
         print("5. Edit an entry")
         print("6. Delete an entry")
-        print("7. Exit")
+        print("7. Export entries to CSV")
+        print("8. Exit")
         choice = input("Choose an option: ")
 
         if choice == '1':
@@ -504,6 +531,57 @@ def main():
                 print("Deletion cancelled.")
 
         elif choice == '7':
+            print("\n+--------------------------------------+")
+            print("Export Options:")
+            print("1. All entries")
+            print("2. Today's entries")
+            print("3. This week's entries")
+            print("4. Custom date range")
+            print("5. Return to main menu")
+            print("+--------------------------------------+")
+
+            export_choice = input("Choose export option: ")
+
+            if export_choice == '1':
+                entries = tracker.get_all_entries()
+            elif export_choice == '2':
+                entries = tracker.filter_entries_by_today()
+            elif export_choice == '3':
+                entries = tracker.filter_entries_by_this_week()
+            elif export_choice == '4':
+                print("\nEnter date range (leave blank to skip):")
+                start_date = get_valid_date()
+                if start_date == 'quit':
+                    continue
+                end_date = get_valid_date()
+                if end_date == 'quit':
+                    continue
+                project_filter = input("Enter project number to filter by (or <Enter> for all): ").strip()
+                project_filter = project_filter if project_filter else None
+                entries = tracker.filter_entries_by_date_range(
+                    start_date=start_date,
+                    end_date=end_date,
+                    project_number=project_filter
+                )
+            elif export_choice == '5':
+                continue
+            else:
+                print("Invalid choice. Returning to main menu.")
+                continue
+
+            if not entries:
+                print("No entries to export.")
+                continue
+
+            default_filename = f"work_entries_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            filename = input(f"Enter filename to export to (default: {default_filename}): ").strip() or default_filename
+
+            if export_entries_to_csv(entries, filename):
+                print(f"Exported {len(entries)} entries to {filename}")
+            else:
+                print("Export failed.")
+
+        elif choice == '8':
             break
 
         else:
