@@ -238,22 +238,26 @@ def main():
             if end_time is None:
                 continue
             print(f"End time: {end_time}")
+
+            parsed_start = datetime.strptime(start_time, '%Y-%m-%d %H:%M')
+            parsed_end = datetime.strptime(end_time, '%Y-%m-%d %H:%M')
+            if parsed_end <= parsed_start:
+                print("End time must be after start time. Entry not added.")
+                continue
+
             description = input("Enter a description of the work done: ")
 
-            if start_time or end_time:
-                tracker.add_entry(project_number, person, start_time, end_time, description)
+            if tracker.add_entry(project_number, person, start_time, end_time, description):
                 print('\n+--------------------------------------+')
-                print(F"Entry added! \b{project_number}\b")
+                print(f"Entry added! {project_number}")
                 print(f"{person}")
                 print(f"Start time: {start_time} \nEnd time: {end_time}\n")
                 print(f"Description - {description}")
                 tracker.print_current_entry_time_spent()
                 print('\n+--------------------------------------+')
                 save_last_person(person)
-
             else:
-                print("Invalid start or end time. Entry not added.")
-                continue
+                print("Failed to save the entry due to a database error.")
 
         elif choice == '2':
             print("\nCurrent Entries:")
@@ -366,8 +370,10 @@ def main():
                 print("End time must be after start time. Edit cancelled.")
                 continue
 
-            tracker.update_entry(entry.id, project_number, person, start_time, end_time, description)
-            print("Entry updated.")
+            if tracker.update_entry(entry.id, project_number, person, start_time, end_time, description):
+                print("Entry updated.")
+            else:
+                print("Failed to update the entry due to a database error.")
 
         elif choice == '6':
             entry = get_entry_for_action(tracker, "delete")
@@ -378,8 +384,10 @@ def main():
             print(format_entry(entry))
             confirm = input("Type 'y' to confirm deletion: ").strip().lower()
             if confirm == 'y':
-                tracker.delete_entry(entry.id)
-                print("Entry deleted.")
+                if tracker.delete_entry(entry.id):
+                    print("Entry deleted.")
+                else:
+                    print("Failed to delete the entry due to a database error.")
             else:
                 print("Deletion cancelled.")
 
