@@ -7,24 +7,27 @@ class WorkEntry:
     Represents a work entry for a specific project.
 
     Attributes:
+        id (int): The row identifier for the work entry.
         project_number (str): The identifier for the project.
         person (str): The name of the person who worked on the project.
-        start_time (datetime): The start time of the work entry.
-        end_time (datetime): The end time of the work entry.
+        start_time (str): The start time of the work entry.
+        end_time (str): The end time of the work entry.
         description (str): A brief description of the work performed.
     """
 
-    def __init__(self, project_number, person, start_time, end_time, description):
+    def __init__(self, entry_id, project_number, person, start_time, end_time, description):
         """
         Initializes a new instance of the WorkEntry class.
 
         Args:
+            entry_id (int): The row identifier for the work entry.
             project_number (str): The identifier for the project.
             person (str): The name of the person who worked on the project.
-            start_time (datetime): The start time of the work entry.
-            end_time (datetime): The end time of the work entry.
+            start_time (str): The start time of the work entry.
+            end_time (str): The end time of the work entry.
             description (str): A brief description of the work performed.
         """
+        self.id = entry_id
         self.project_number = project_number
         self.person = person
         self.start_time = start_time
@@ -83,8 +86,7 @@ class WorkTracker:
         cursor.execute('SELECT * FROM work_entries')
         rows = cursor.fetchall()
         conn.close()
-        #TODO: Use a work entry object to represent each row
-        return [WorkEntry(row[0], row[2], row[3], row[4], row[5]) for row in rows]
+        return [WorkEntry(row[1], row[0], row[2], row[3], row[4], row[5]) for row in rows]
 
     def get_last_entry(self):
         """
@@ -98,7 +100,69 @@ class WorkTracker:
         cursor.execute('SELECT * FROM work_entries ORDER BY id DESC LIMIT 1')
         row = cursor.fetchone()
         conn.close()
-        return WorkEntry(row[0], row[2], row[3], row[4], row[5]) if row else None
+        return WorkEntry(row[1], row[0], row[2], row[3], row[4], row[5]) if row else None
+
+    def get_entry_by_id(self, entry_id):
+        """
+        Retrieves a single work entry by its row id.
+
+        Args:
+            entry_id (int): The id of the work entry to retrieve.
+
+        Returns:
+            WorkEntry: The matching work entry, or None if no entry has that id.
+        """
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM work_entries WHERE id = ?', (entry_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return WorkEntry(row[1], row[0], row[2], row[3], row[4], row[5]) if row else None
+
+    def update_entry(self, entry_id, project_number, person, start_time, end_time, description):
+        """
+        Updates an existing work entry.
+
+        Args:
+            entry_id (int): The id of the work entry to update.
+            project_number (str): The identifier for the project.
+            person (str): The name of the person who worked on the project.
+            start_time (str): The start time of the work entry.
+            end_time (str): The end time of the work entry.
+            description (str): A brief description of the work performed.
+
+        Returns:
+            bool: True if an entry was updated, False if no entry had that id.
+        """
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            UPDATE work_entries
+            SET project_number = ?, person = ?, start_time = ?, end_time = ?, description = ?
+            WHERE id = ?
+        ''', (project_number, person, start_time, end_time, description, entry_id))
+        conn.commit()
+        updated = cursor.rowcount > 0
+        conn.close()
+        return updated
+
+    def delete_entry(self, entry_id):
+        """
+        Deletes a work entry by its row id.
+
+        Args:
+            entry_id (int): The id of the work entry to delete.
+
+        Returns:
+            bool: True if an entry was deleted, False if no entry had that id.
+        """
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute('DELETE FROM work_entries WHERE id = ?', (entry_id,))
+        conn.commit()
+        deleted = cursor.rowcount > 0
+        conn.close()
+        return deleted
 
     def print_current_entry_time_spent(self):
         """
@@ -181,8 +245,8 @@ class WorkTracker:
         cursor.execute(query, params)
         rows = cursor.fetchall()
         conn.close()
-        
-        return [WorkEntry(row[0], row[2], row[3], row[4], row[5]) for row in rows]
+
+        return [WorkEntry(row[1], row[0], row[2], row[3], row[4], row[5]) for row in rows]
 
     def filter_entries_by_today(self, project_number=None):
         """

@@ -130,9 +130,23 @@ def get_valid_date():
     )
 
 
+def format_entry(entry):
+    """Format a single work entry for display, including its id for reference
+    when editing or deleting.
+
+    Args:
+        entry (WorkEntry): The entry to format.
+
+    Returns:
+        str: A one-line human-readable representation of the entry.
+    """
+    return (f"[ID {entry.id}] Project {entry.project_number}: {entry.person} worked from "
+            f"{entry.start_time} to {entry.end_time}: {entry.description}")
+
+
 def display_filtered_entries(entries, filter_description):
     """Display a list of work entries with a descriptive header.
-    
+
     Args:
         entries (list): List of WorkEntry objects to display.
         filter_description (str): Description of the filter applied.
@@ -140,16 +154,39 @@ def display_filtered_entries(entries, filter_description):
     print("\n+--------------------------------------+")
     print(f"Entries {filter_description}:")
     print("+--------------------------------------+")
-    
+
     if entries:
         for entry in entries:
-            print(f"Project {entry.project_number}: {entry.person} worked from "
-                  f"{entry.start_time} to {entry.end_time}: {entry.description}")
+            print(format_entry(entry))
         print(f"\nTotal entries found: {len(entries)}")
     else:
         print("No entries found matching the filter criteria.")
-    
+
     print(f"+--------------------------------------+\n")
+
+
+def get_entry_for_action(tracker, action_label):
+    """Prompts for an entry id and looks it up, printing feedback on failure.
+
+    Args:
+        tracker (WorkTracker): The tracker to look up the entry in.
+        action_label (str): Verb describing the action, used in the prompt (e.g. "edit").
+
+    Returns:
+        WorkEntry: The matching entry, or None if the user cancelled or the id was invalid.
+    """
+    entry_id_input = input(f"Enter the entry ID to {action_label} (or <Enter> to cancel): ").strip()
+    if not entry_id_input:
+        return None
+    if not entry_id_input.isdigit():
+        print("Invalid entry ID.")
+        return None
+
+    entry = tracker.get_entry_by_id(int(entry_id_input))
+    if not entry:
+        print(f"No entry found with ID {entry_id_input}.")
+        return None
+    return entry
 
 
 def main():
@@ -171,7 +208,9 @@ def main():
         3. Search total time spent by job number: Allows the user to search for
            the total time spent on a specific job number.
         4. Filter entries by date: Filter and view entries by date range or specific dates.
-        5. Exit: Exits the application.
+        5. Edit an entry: Update the fields of an existing entry by its ID.
+        6. Delete an entry: Remove an existing entry by its ID.
+        7. Exit: Exits the application.
     """
     tracker = WorkTracker()
     last_person = load_last_person()
@@ -183,7 +222,9 @@ def main():
         print("2. View all entries")
         print("3. Search total time spent by job number")
         print("4. Filter entries by date")
-        print("5. Exit")
+        print("5. Edit an entry")
+        print("6. Delete an entry")
+        print("7. Exit")
         choice = input("Choose an option: ")
 
         if choice == '1':
@@ -217,17 +258,15 @@ def main():
         elif choice == '2':
             print("\nCurrent Entries:")
             for entry in tracker.get_all_entries():
-                print(f"Project {entry.project_number}: {entry.person} worked from "
-                      f"{entry.start_time} to {entry.end_time}: {entry.description}")
-        elif choice == '3': #TODO: Implement print each row of the table from the select query
+                print(format_entry(entry))
+        elif choice == '3':
             job_number = input("Enter the job number to search for total time spent: ")
             total_time = tracker.get_total_time_spent()
             print('\n+--------------------------------------+')
             if job_number in total_time:
                 for entry in tracker.get_all_entries():
                     if entry.project_number == job_number:
-                        print(f"Project {entry.project_number}: {entry.person} worked from "
-                              f"{entry.start_time} to {entry.end_time}: {entry.description}")
+                        print(format_entry(entry))
                 print(f"{total_time[job_number]:.2f} hours spent on {job_number}.")
             else:
                 print(f"No entries found for {job_number}.")
@@ -302,7 +341,53 @@ def main():
                 print("Invalid choice. Returning to main menu.")
 
         elif choice == '5':
+            entry = get_entry_for_action(tracker, "edit")
+            if not entry:
+                continue
+
+            print("\nCurrent entry:")
+            print(format_entry(entry))
+            print("Leave a field blank to keep its current value.\n")
+
+            project_number = input(f"Project number [{entry.project_number}]: ").strip() or entry.project_number
+            person = input(f"Person [{entry.person}]: ").strip() or entry.person
+            start_time = input(f"Start time [{entry.start_time}] (YYYY-MM-DD HH:MM): ").strip() or entry.start_time
+            end_time = input(f"End time [{entry.end_time}] (YYYY-MM-DD HH:MM): ").strip() or entry.end_time
+            description = input(f"Description [{entry.description}]: ").strip() or entry.description
+
+            try:
+                parsed_start = datetime.strptime(start_time, '%Y-%m-%d %H:%M')
+                parsed_end = datetime.strptime(end_time, '%Y-%m-%d %H:%M')
+            except ValueError:
+                print("Invalid date/time format. Edit cancelled.")
+                continue
+
+            if parsed_end <= parsed_start:
+                print("End time must be after start time. Edit cancelled.")
+                continue
+
+            tracker.update_entry(entry.id, project_number, person, start_time, end_time, description)
+            print("Entry updated.")
+
+        elif choice == '6':
+            entry = get_entry_for_action(tracker, "delete")
+            if not entry:
+                continue
+
+            print("\nEntry to delete:")
+            print(format_entry(entry))
+            confirm = input("Type 'y' to confirm deletion: ").strip().lower()
+            if confirm == 'y':
+                tracker.delete_entry(entry.id)
+                print("Entry deleted.")
+            else:
+                print("Deletion cancelled.")
+
+        elif choice == '7':
             break
+
+        else:
+            print("Invalid choice. Please try again.")
 
 if __name__ == "__main__":
     main()
