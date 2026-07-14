@@ -7,47 +7,56 @@ from datetime import datetime
 from work_tracker import WorkTracker
 
 LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'work_tracker.log')
+DATA_DIR = 'data'
+LAST_USED_PATH = os.path.join(DATA_DIR, 'last_used.json')
+LEGACY_LAST_PERSON_PATH = os.path.join(DATA_DIR, 'last_person.json')
 
-def load_last_person():
+
+def load_last_used():
     """
-    Loads the last person's name from a JSON file located in the 'data' directory.
+    Loads the last-used person and project number from the 'data' directory,
+    creating the directory if it doesn't exist.
 
-    If the 'data' directory does not exist, it creates the directory.
-    If the 'last_person.json' file exists, it reads the file and returns the value
-    associated with the 'last_person' key. If the key does not exist, it returns an
-    empty string. If the file does not exist, it returns an empty string.
+    Falls back to the older last_person.json (used before project number was
+    also remembered) if last_used.json doesn't exist yet, so an existing
+    preference isn't silently lost on upgrade.
 
     Returns:
-        str: The name of the last person or an empty string if not found.
+        dict: A dict with 'last_person' and 'last_project' keys, each defaulting
+            to an empty string if not found.
     """
-    data_dir = 'data'
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
-    json_file_path = os.path.join(data_dir, 'last_person.json')
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
 
-    if os.path.exists(json_file_path):
-        with open(json_file_path, 'r', encoding='utf-8') as f:
-            return json.load(f).get('last_person', '')
-    return ''
+    if os.path.exists(LAST_USED_PATH):
+        with open(LAST_USED_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    elif os.path.exists(LEGACY_LAST_PERSON_PATH):
+        with open(LEGACY_LAST_PERSON_PATH, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+    else:
+        data = {}
 
-def save_last_person(person):
+    return {
+        'last_person': data.get('last_person', ''),
+        'last_project': data.get('last_project', ''),
+    }
+
+
+def save_last_used(person, project_number):
     """
-    Saves the provided person's data to a JSON file in the 'data' directory.
-
-    If the 'data' directory does not exist, it creates the directory.
-    The function writes the person's data to a file named 'last_person.json'
-    in JSON format, with the key 'last_person'.
+    Saves the last-used person and project number to the 'data' directory,
+    creating the directory if it doesn't exist.
 
     Args:
-        person (str): The name of the person to be saved.
+        person (str): The name of the person to remember.
+        project_number (str): The project number to remember.
     """
-    data_dir = 'data'
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
-    json_file_path = os.path.join(data_dir, 'last_person.json')
+    if not os.path.exists(DATA_DIR):
+        os.makedirs(DATA_DIR)
 
-    with open(json_file_path, 'w', encoding='utf-8') as f:
-        json.dump({'last_person': person}, f)
+    with open(LAST_USED_PATH, 'w', encoding='utf-8') as f:
+        json.dump({'last_person': person, 'last_project': project_number}, f)
 
 
 def get_valid_input(prompt, fmt, empty_value, quit_value, invalid_label):
@@ -316,10 +325,10 @@ def main():
     """
     Main function to run the Work Tracker application.
 
-    This function initializes the WorkTracker object and loads the last person's
-    name from a file. It then enters a loop where the user can choose from several
-    options: adding a work entry, viewing all entries, searching for total time
-    spent by job number, or exiting the application.
+    This function initializes the WorkTracker object and loads the last-used
+    person and project number from a file. It then enters a loop where the user
+    can choose from several options: adding a work entry, viewing all entries,
+    searching for total time spent by job number, or exiting the application.
 
     The function handles user input and calls appropriate methods from the
     WorkTracker class to perform the desired actions.
@@ -350,7 +359,9 @@ def main():
         print(f"Fatal: could not initialize the database: {e}")
         raise SystemExit(1)
 
-    last_person = load_last_person()
+    last_used = load_last_used()
+    last_person = last_used['last_person']
+    last_project = last_used['last_project']
     print("Welcome to the Work Tracker!")
 
     while True:
@@ -367,7 +378,7 @@ def main():
 
         if choice == '1':
             person = input(f"Enter your name (default: {last_person}): ") or last_person
-            project_number = input("Enter project number: ")
+            project_number = input(f"Enter project number (default: {last_project}): ").strip() or last_project
 
             start_time, end_time = prompt_for_valid_time_range(get_valid_start_time, get_valid_end_time)
             if start_time is None:
@@ -391,7 +402,9 @@ def main():
                 print(f"Description - {description}")
                 tracker.print_current_entry_time_spent()
                 print('\n+--------------------------------------+')
-                save_last_person(person)
+                save_last_used(person, project_number)
+                last_person = person
+                last_project = project_number
             else:
                 print("Failed to save the entry due to a database error.")
 
