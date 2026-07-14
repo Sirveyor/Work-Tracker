@@ -170,7 +170,8 @@ def display_filtered_entries(entries, filter_description):
 
 
 def get_entry_for_action(tracker, action_label):
-    """Prompts for an entry id and looks it up, printing feedback on failure.
+    """Shows recent entries, prompts for an entry id, and looks it up, printing
+    feedback on failure.
 
     Args:
         tracker (WorkTracker): The tracker to look up the entry in.
@@ -179,7 +180,16 @@ def get_entry_for_action(tracker, action_label):
     Returns:
         WorkEntry: The matching entry, or None if the user cancelled or the id was invalid.
     """
-    entry_id_input = input(f"Enter the entry ID to {action_label} (or <Enter> to cancel): ").strip()
+    recent_entries = tracker.get_recent_entries(limit=10)
+    if not recent_entries:
+        print(f"No entries to {action_label}.")
+        return None
+
+    print("\nMost recent entries (see options 2 or 4 for the full list):")
+    for entry in recent_entries:
+        print(format_entry(entry))
+
+    entry_id_input = input(f"\nEnter the entry ID to {action_label} (or <Enter> to cancel): ").strip()
     if not entry_id_input:
         return None
     if not entry_id_input.isdigit():

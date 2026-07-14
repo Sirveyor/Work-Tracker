@@ -135,6 +135,24 @@ class WorkTracker:
             rows = cursor.fetchall()
             return [WorkEntry(row[1], row[0], row[2], row[3], row[4], row[5]) for row in rows]
 
+    @db_operation(default=[])
+    def get_recent_entries(self, limit=10):
+        """
+        Retrieves the most recent work entries, most recent first.
+
+        Args:
+            limit (int): Maximum number of entries to retrieve.
+
+        Returns:
+            list: A list of WorkEntry objects, most recent first, or an empty
+                list if a database error occurred.
+        """
+        with closing(create_connection()) as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT * FROM work_entries ORDER BY id DESC LIMIT ?', (limit,))
+            rows = cursor.fetchall()
+            return [WorkEntry(row[1], row[0], row[2], row[3], row[4], row[5]) for row in rows]
+
     @db_operation(default=None)
     def get_last_entry(self):
         """

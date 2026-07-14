@@ -69,6 +69,18 @@ def test_get_last_entry_returns_entry_not_a_list(tracker):
     assert last.project_number == "P2"
 
 
+def test_get_recent_entries_returns_most_recent_first(tracker):
+    for i in range(5):
+        tracker.add_entry(f"P{i}", "Alice", f"2026-01-0{i + 1} 09:00", f"2026-01-0{i + 1} 10:00", f"entry {i}")
+
+    recent = tracker.get_recent_entries(limit=3)
+    assert [e.project_number for e in recent] == ["P4", "P3", "P2"]
+
+
+def test_get_recent_entries_when_empty(tracker):
+    assert tracker.get_recent_entries() == []
+
+
 def test_get_entry_by_id(tracker):
     tracker.add_entry("P1", "Alice", "2026-01-05 09:00", "2026-01-05 10:00", "first")
     entry_id = tracker.get_last_entry().id
