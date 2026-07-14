@@ -1,5 +1,6 @@
 import os
 import sqlite3
+from contextlib import closing
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'work_tracker.db')
 
@@ -14,11 +15,9 @@ def create_connection():
     return conn
 
 def create_table():
-    # TODO: Add a context manager to handle the connection and cursor
-
     """
     Creates a table named 'work_entries' in the SQLite database if it does not already exist.
-    
+
     The table includes the following columns:
         - project_number (TEXT): The project number associated with the work entry.
         - id (INTEGER): A unique identifier for each work entry, automatically incremented.
@@ -26,21 +25,20 @@ def create_table():
         - start_time (TEXT): The start time of the work entry.
         - end_time (TEXT): The end time of the work entry.
         - description (TEXT): A description of the work entry.
-    
+
     This function establishes a connection to the database, executes the SQL command to create
     the table, commits the transaction, and then closes the connection.
     """
-    conn = create_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS work_entries (
-            project_number TEXT NOT NULL,
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            person TEXT NOT NULL,
-            start_time TEXT NOT NULL,
-            end_time TEXT NOT NULL,
-            description TEXT NOT NULL
-        )
-    ''')
-    conn.commit()
-    conn.close()
+    with closing(create_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS work_entries (
+                project_number TEXT NOT NULL,
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                person TEXT NOT NULL,
+                start_time TEXT NOT NULL,
+                end_time TEXT NOT NULL,
+                description TEXT NOT NULL
+            )
+        ''')
+        conn.commit()
