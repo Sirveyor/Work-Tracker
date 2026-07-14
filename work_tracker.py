@@ -60,14 +60,25 @@ class WorkTracker:
     """
     A class to track work entries for various projects.
 
+    On construction, ensures the work_entries table exists (see __init__).
+
     Methods:
-        create_table(): Creates the work_entries table if it does not exist.
-        add_entry(project_number, person, start_time, end_time, description): Adds a new work
-            entry to the database.
-        get_entries(): Retrieves all work entries from the database.
+        add_entry(project_number, person, start_time, end_time, description): Adds a new
+            work entry to the database.
+        get_all_entries(): Retrieves all work entries from the database.
         get_last_entry(): Retrieves the most recent work entry from the database.
+        get_entry_by_id(entry_id): Retrieves a single work entry by its row id.
+        update_entry(entry_id, project_number, person, start_time, end_time, description):
+            Updates an existing work entry.
+        delete_entry(entry_id): Deletes a work entry by its row id.
         print_current_entry_time_spent(): Prints the time spent on the most recent work entry.
         get_total_time_spent(): Calculates the total time spent on each project.
+        filter_entries_by_date_range(start_date, end_date, project_number): Retrieves entries
+            filtered by date range and/or project number.
+        filter_entries_by_today(project_number): Retrieves today's entries.
+        filter_entries_by_this_week(project_number): Retrieves this week's entries.
+        get_total_time_by_date_range(start_date, end_date, project_number): Calculates total
+            time spent within a date range, optionally filtered by project.
     """
 
     def __init__(self):
