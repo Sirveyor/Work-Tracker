@@ -134,6 +134,62 @@ def get_valid_date():
     )
 
 
+def get_valid_edit_time(prompt, fmt, current_value):
+    """Prompts for a datetime field during an edit. Blank input keeps
+    current_value; 'q' cancels; anything else is re-prompted on invalid
+    format instead of aborting.
+
+    Args:
+        prompt (str): The prompt to display to the user.
+        fmt (str): The strptime format the input must match.
+        current_value (str): The value to keep on blank input.
+
+    Returns:
+        str: The new or kept value, or None if the user quit.
+    """
+    while True:
+        value = input(prompt).strip()
+        if value == '':
+            return current_value
+        if value.lower() == 'q':
+            return None
+        try:
+            datetime.strptime(value, fmt)
+            return value
+        except ValueError:
+            print(f"Invalid format. Please use {fmt}, leave blank to keep "
+                  f"'{current_value}', or 'q' to cancel.")
+
+
+def prompt_for_valid_time_range(get_start, get_end):
+    """Collects a start/end time pair, re-prompting for both on a
+    non-chronological order instead of discarding the rest of an in-progress
+    add or edit.
+
+    Args:
+        get_start: Zero-arg callable returning a start time string, or None to cancel.
+        get_end: Zero-arg callable returning an end time string, or None to cancel.
+
+    Returns:
+        tuple: (start_time, end_time), or (None, None) if the user cancelled.
+    """
+    fmt = '%Y-%m-%d %H:%M'
+    while True:
+        start_time = get_start()
+        if start_time is None:
+            return None, None
+
+        end_time = get_end()
+        if end_time is None:
+            return None, None
+
+        if datetime.strptime(end_time, fmt) <= datetime.strptime(start_time, fmt):
+            print("End time must be after start time. Please re-enter both times.")
+            continue
+
+        return start_time, end_time
+
+
 def format_entry(entry):
     """Format a single work entry for display, including its id for reference
     when editing or deleting.
@@ -256,20 +312,12 @@ def main():
         if choice == '1':
             person = input(f"Enter your name (default: {last_person}): ") or last_person
             project_number = input("Enter project number: ")
-            start_time = get_valid_start_time()
+
+            start_time, end_time = prompt_for_valid_time_range(get_valid_start_time, get_valid_end_time)
             if start_time is None:
                 continue
             print(f"Start time: {start_time}")
-            end_time = get_valid_end_time()
-            if end_time is None:
-                continue
             print(f"End time: {end_time}")
-
-            parsed_start = datetime.strptime(start_time, '%Y-%m-%d %H:%M')
-            parsed_end = datetime.strptime(end_time, '%Y-%m-%d %H:%M')
-            if parsed_end <= parsed_start:
-                print("End time must be after start time. Entry not added.")
-                continue
 
             description = input("Enter a description of the work done: ")
 
@@ -377,24 +425,22 @@ def main():
 
             print("\nCurrent entry:")
             print(format_entry(entry))
-            print("Leave a field blank to keep its current value.\n")
+            print("Leave a field blank to keep its current value; enter 'q' at a time prompt to cancel.\n")
 
             project_number = input(f"Project number [{entry.project_number}]: ").strip() or entry.project_number
             person = input(f"Person [{entry.person}]: ").strip() or entry.person
-            start_time = input(f"Start time [{entry.start_time}] (YYYY-MM-DD HH:MM): ").strip() or entry.start_time
-            end_time = input(f"End time [{entry.end_time}] (YYYY-MM-DD HH:MM): ").strip() or entry.end_time
+
+            start_time, end_time = prompt_for_valid_time_range(
+                lambda: get_valid_edit_time(
+                    f"Start time [{entry.start_time}] (YYYY-MM-DD HH:MM): ", '%Y-%m-%d %H:%M', entry.start_time),
+                lambda: get_valid_edit_time(
+                    f"End time [{entry.end_time}] (YYYY-MM-DD HH:MM): ", '%Y-%m-%d %H:%M', entry.end_time),
+            )
+            if start_time is None:
+                print("Edit cancelled.")
+                continue
+
             description = input(f"Description [{entry.description}]: ").strip() or entry.description
-
-            try:
-                parsed_start = datetime.strptime(start_time, '%Y-%m-%d %H:%M')
-                parsed_end = datetime.strptime(end_time, '%Y-%m-%d %H:%M')
-            except ValueError:
-                print("Invalid date/time format. Edit cancelled.")
-                continue
-
-            if parsed_end <= parsed_start:
-                print("End time must be after start time. Edit cancelled.")
-                continue
 
             if tracker.update_entry(entry.id, project_number, person, start_time, end_time, description):
                 print("Entry updated.")
