@@ -1,8 +1,11 @@
 import os
 import json
+import logging
 import sqlite3
 from datetime import datetime
 from work_tracker import WorkTracker
+
+LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'work_tracker.log')
 
 def load_last_person():
     """
@@ -213,9 +216,16 @@ def main():
         6. Delete an entry: Remove an existing entry by its ID.
         7. Exit: Exits the application.
     """
+    logging.basicConfig(
+        filename=LOG_PATH,
+        level=logging.WARNING,
+        format='%(asctime)s %(levelname)s %(name)s: %(message)s',
+    )
+
     try:
         tracker = WorkTracker()
     except sqlite3.Error as e:
+        logging.exception("Fatal: could not initialize the database")
         print(f"Fatal: could not initialize the database: {e}")
         raise SystemExit(1)
 

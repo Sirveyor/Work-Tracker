@@ -1,14 +1,17 @@
 import functools
+import logging
 import sqlite3
 from contextlib import closing
 from datetime import datetime, date, timedelta
 from database import create_connection, create_table
 
+logger = logging.getLogger(__name__)
+
 
 def db_operation(default=None):
     """Decorator that catches sqlite3 errors raised by a WorkTracker method,
-    prints a user-facing message, and returns `default` instead of letting
-    the error crash the application.
+    logs the full traceback, prints a short user-facing message, and returns
+    `default` instead of letting the error crash the application.
 
     Args:
         default: The value to return if a database error occurs.
@@ -18,8 +21,9 @@ def db_operation(default=None):
         def wrapper(*args, **kwargs):
             try:
                 return func(*args, **kwargs)
-            except sqlite3.Error as e:
-                print(f"Database error in {func.__name__}: {e}")
+            except sqlite3.Error:
+                logger.exception("Database error in %s", func.__name__)
+                print("A database error occurred while performing this action. Please try again.")
                 return default
         return wrapper
     return decorator

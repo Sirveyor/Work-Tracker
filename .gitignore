@@ -7,6 +7,9 @@ work_tracker.db.bak
 work_tracker copy.db
 *.db
 
+# Logs
+*.log
+
 # Rust
 /target/
 Cargo.lock
